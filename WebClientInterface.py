@@ -8,6 +8,7 @@ import enum
 class SessionStatus(enum.Enum):
     IDLE = 0
     STARTED = 1
+    VR_CONNECTED = 2
 
 class ExerciseStatus(enum.Enum):
     IDLE = 0
@@ -27,7 +28,7 @@ class WebClientInterace(Thread):
         self.connectionList = []
 
         ### Signals ###
-        self.signalGotHMDIP = "s1"
+        self.signalGotHMDIP = "wci1"
 
         ### Logger setup ###
         self.log = logging.getLogger(__name__)
@@ -52,7 +53,7 @@ class WebClientInterace(Thread):
                 data = ws.recv()
                 if data is None:
                     break
-                self.log.debug("%s", data)
+                self.log.debug("Data: %s", data)
                 self.messageParser(data)
             except:
                 break
@@ -63,9 +64,9 @@ class WebClientInterace(Thread):
 
     def messageParser(self, msg):
         if "START_SESSION" in msg:
-            if self.sesStat != SessionStatus.IDLE:
-                self.log.info("Session already started!")
-                return
+            # if self.sesStat != SessionStatus.IDLE:
+            #     self.log.info("Session already started!")
+            #     return
             
             try:
                 HMDIP = msg.split('(')[1][:-1]
@@ -74,9 +75,10 @@ class WebClientInterace(Thread):
                 return
             
             self.log.debug("Parsed START_SESSION message. HMD IP: %s", HMDIP)
-            dispatcher.send(self.signalGotHMDIP, self, ip=HMDIP)
-            self.sesStat = SessionStatus.STARTED
-            self.log.info("Starting new session")
+            
+            if self.sesStat != SessionStatus.VR_CONNECTED:
+                dispatcher.send(self.signalGotHMDIP, self, ip=HMDIP)
+            
         elif "START_EXERCISE" in msg:
             if self.exStat != ExerciseStatus.IDLE:
                 self.log.info("Exercise already defined!")
@@ -111,17 +113,23 @@ class WebClientInterace(Thread):
     ### "SLOTS" ###
 
     # Handler for signals dispatched by the device wrappers (connection status, errorr?)
-    def handlerDeviceData(self, type, device, data):
+    def handlerDeviceData(self, type, id, data):
         #TODO: adapt to app needs
         for ws in self.connectionList:
-            ws.send("HW_CONNECTION_STATUS("+str(device)+","+str(data)+")")
+            ws.send("HW_CONNECTION_STATUS("+str(type)+","+str(id)+","+str(data)+")")
         pass
 
     # Handler for signals dispatched by the HMD interface
-    def handlerHMDInterface(self, data):
+    def handlerHMDInterface(self, status):
+        if "connected" in status:
+            self.sesStat = SessionStatus.STARTED
+        elif "disconnected" in status:
+            self.sesStat = SessionStatus.IDLE
+
         for ws in self.connectionList:
-            ws.send("VR_CONNECTION_STATUS("+str(data)+")")
+            ws.send("VR_CONNECTION_STATUS("+str(status)+")")
         pass
 
-c = WebClientInterace(11111)
-c.start()
+if __name__ == "__main__":
+    c = WebClientInterace(11111)
+    c.start()
