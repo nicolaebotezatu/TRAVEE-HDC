@@ -4,9 +4,11 @@ import WebClientInterface as wci
 import HMDInterface as hmdi
 from pydispatch import dispatcher
 from threading import Timer
+import argparse
+import time
 
 class HDCGUIDemo(tk.Tk):
-    def __init__(self):
+    def __init__(self, wsServerPort=31010, wsHMDPort=22222):
         super().__init__()
         self.title("HDC dummy")
         ttk.Label(self, text='Demo value generator').pack()
@@ -47,11 +49,12 @@ class HDCGUIDemo(tk.Tk):
         ### Signals ###
         self.signalHwStatus = "gui1"
         self.signalHwData = "gui2"
+        self.signalKill = "gui3"
 
         ### BE elements ###
-        self.wci = wci.WebClientInterace(port=31010)
+        self.wci = wci.WebClientInterace(port=wsServerPort)
         self.wci.start()
-        self.hmdi = hmdi.HMDInterace(port=22222)
+        self.hmdi = hmdi.HMDInterace(port=wsHMDPort)
         # WS-Srv --> HMD IP --> WS-Cl
         dispatcher.connect(self.hmdi.handlerSetIPAddress, signal=self.wci.signalGotHMDIP, sender=self.wci)
         # WS-Cl --> Conn status --> WS-Srv
@@ -63,15 +66,21 @@ class HDCGUIDemo(tk.Tk):
         # Chkbox --> Hw_stat --> WS_Srv
         dispatcher.connect(self.wci.handlerDeviceData, signal=self.signalHwStatus, sender=self)
 
+        dispatcher.connect(self.wci.handlerCloseSignal, signal=self.signalKill, sender=self)
+        dispatcher.connect(self.hmdi.handlerCloseSignal, signal=self.signalKill, sender=self)
+
         self.timer = Timer(1, self.handlerTimer)
 
     def handlerTimer(self):
         #TODO: 
-        value = self.sliderValue.get()
-        dispatcher.send(self.signalHwData, self, type="BCI", id="1", data="{:.2f}".format(value))
+        try:
+            value = self.sliderValue.get()
+            dispatcher.send(self.signalHwData, self, type="BCI", id="1", data="{:.2f}".format(value))
 
-        self.timer = Timer(self.sliderPeriod.get(), self.handlerTimer)
-        self.timer.start()
+            self.timer = Timer(self.sliderPeriod.get(), self.handlerTimer)
+            self.timer.start()
+        except:
+            pass
 
     def handlerPeriod(self, event):
         try:
@@ -92,22 +101,22 @@ class HDCGUIDemo(tk.Tk):
     def handlerCheckbox(self):
         if self.oldValDevs[0] != self.varDevs[0].get():
             dispatcher.send(self.signalHwStatus,self,type="Dev",id=1,data="connected" if self.varDevs[0].get() == 1 else "disconnected")
-            print("Dev 0: ", self.varDevs[0].get())
+            # print("Dev 0: ", self.varDevs[0].get())
             self.oldValDevs[0] = self.varDevs[0].get()
 
         if self.oldValDevs[1] != self.varDevs[1].get():
             dispatcher.send(self.signalHwStatus,self,type="Dev",id=2,data="connected" if self.varDevs[1].get() == 1 else "disconnected")
-            print("Dev 1: ", self.varDevs[1].get())
+            # print("Dev 1: ", self.varDevs[1].get())
             self.oldValDevs[1] = self.varDevs[1].get()
 
         if self.oldValDevs[2] != self.varDevs[2].get():
             dispatcher.send(self.signalHwStatus,self,type="Dev",id=3,data="connected" if self.varDevs[2].get() == 1 else "disconnected")
-            print("Dev 2: ", self.varDevs[2].get())
+            # print("Dev 2: ", self.varDevs[2].get())
             self.oldValDevs[2] = self.varDevs[2].get()
 
         if self.oldValDevs[3] != self.varDevs[3].get():
             dispatcher.send(self.signalHwStatus,self,type="Dev",id=4,data="connected" if self.varDevs[3].get() == 1 else "disconnected")
-            print("Dev 3: ", self.varDevs[3].get())
+            # print("Dev 3: ", self.varDevs[3].get())
             self.oldValDevs[3] = self.varDevs[3].get()
         pass
 
@@ -120,6 +129,22 @@ class HDCGUIDemo(tk.Tk):
             # print("Cancelling timer")
             self.timer.cancel()
 
+    def cleanUp(self):
+        # print("Sending kill signal...")
+        dispatcher.send(self.signalKill, self)
+        self.wci.join()
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-s", "--ServerPort", help = "Port for the HDC WS Server to listen on", required=True)
+    parser.add_argument("-d", "--HMDPort", help = "Port on which the HMD WS Server is listening on", required=True)
+    args = parser.parse_args()
+
     app = HDCGUIDemo()
-    app.mainloop()
+    try:
+        app.mainloop()
+    except KeyboardInterrupt:
+        print("Keyboard Interrupt")
+    app.timer.cancel()
+    app.cleanUp()
+    time.sleep(1)

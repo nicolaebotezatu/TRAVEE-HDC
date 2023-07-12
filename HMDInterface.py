@@ -1,9 +1,12 @@
 from pydispatch import dispatcher
 from websockets.sync.client import connect
+import websockets.sync.client as wssyc
 from threading import Thread
+import threading
 import logging
 import sys
 import enum
+import ctypes
 
 class ConnectionStatus(enum.Enum):
     DISCONNECTED = 0
@@ -52,6 +55,7 @@ class HMDInterace:
                 self.ws.close()
         try:
             self.ws = connect("ws://"+ip+":"+str(self.port))#,open_timeout=0.5)
+            # print(type(self.ws))
             self.log.info("HMD connection opened!")
             self.connStat = ConnectionStatus.CONNECTED
             self.recvThread = Thread(target=self.run)
@@ -71,3 +75,24 @@ class HMDInterace:
         except:
             # probably ConnectionClosed exception
             pass
+
+    def getThreadId(self):
+        # returns id of the respective thread
+        if hasattr(self.recvThread, '_thread_id'):
+            return self.recvThread._thread_id
+        for id, thread in threading._active.items():
+            if thread is self.recvThread:
+                return id
+
+    def handlerCloseSignal(self):
+        try:
+            if isinstance(self.ws, wssyc.ClientConnection) == True:
+                # print("self.ws.close()")
+                self.ws.close()
+            if isinstance(self.recvThread, Thread) == True:
+                ctypes.pythonapi.PyThreadState_SetAsyncExc(self.getThreadId(), ctypes.py_object(SystemExit))
+                # print("PyThreadState_SetAsyncExc")
+                self.recvThread.join()
+                # print("self.recvThread.join()")
+        except Exception as e:
+            self.log.debug(e)

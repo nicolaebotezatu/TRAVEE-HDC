@@ -131,6 +131,12 @@ class WebClientInterace(Thread):
             ws.send("VR_CONNECTION_STATUS("+str(status)+")")
         pass
 
+    def handlerCloseSignal(self):
+        self.log.debug("Shutting down...")
+        for ws in self.connectionList:
+            ws.close()
+        self.server.shutdown()
+
 if __name__ == "__main__":
     c = WebClientInterace(11111)
     c.start()
