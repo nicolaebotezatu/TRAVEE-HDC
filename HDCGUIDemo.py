@@ -91,18 +91,22 @@ class HDCGUIDemo(tk.Tk):
 
     def handlerCheckbox(self):
         if self.oldValDevs[0] != self.varDevs[0].get():
+            dispatcher.send(self.signalHwStatus,self,type="Dev",id=1,data="connected" if self.varDevs[0].get() == 1 else "disconnected")
             print("Dev 0: ", self.varDevs[0].get())
             self.oldValDevs[0] = self.varDevs[0].get()
 
         if self.oldValDevs[1] != self.varDevs[1].get():
+            dispatcher.send(self.signalHwStatus,self,type="Dev",id=2,data="connected" if self.varDevs[1].get() == 1 else "disconnected")
             print("Dev 1: ", self.varDevs[1].get())
             self.oldValDevs[1] = self.varDevs[1].get()
 
         if self.oldValDevs[2] != self.varDevs[2].get():
+            dispatcher.send(self.signalHwStatus,self,type="Dev",id=3,data="connected" if self.varDevs[2].get() == 1 else "disconnected")
             print("Dev 2: ", self.varDevs[2].get())
             self.oldValDevs[2] = self.varDevs[2].get()
 
         if self.oldValDevs[3] != self.varDevs[3].get():
+            dispatcher.send(self.signalHwStatus,self,type="Dev",id=4,data="connected" if self.varDevs[3].get() == 1 else "disconnected")
             print("Dev 3: ", self.varDevs[3].get())
             self.oldValDevs[3] = self.varDevs[3].get()
         pass

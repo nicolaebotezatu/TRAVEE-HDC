@@ -4,8 +4,11 @@ from websockets.server import serve
 async def echo(websocket):
     print("Client ", websocket.remote_address, "connected")
     while True:
-        async for message in websocket:
-            print(message)
+        try:
+            async for message in websocket:
+                print(message)
+        except:
+            pass
 
 async def main():
     async with serve(echo, "localhost", 22222):

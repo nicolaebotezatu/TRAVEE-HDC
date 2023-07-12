@@ -75,7 +75,7 @@ class WebClientInterace(Thread):
                 return
             
             self.log.debug("Parsed START_SESSION message. HMD IP: %s", HMDIP)
-            
+
             if self.sesStat != SessionStatus.VR_CONNECTED:
                 dispatcher.send(self.signalGotHMDIP, self, ip=HMDIP)
             
@@ -115,6 +115,7 @@ class WebClientInterace(Thread):
     # Handler for signals dispatched by the device wrappers (connection status, errorr?)
     def handlerDeviceData(self, type, id, data):
         #TODO: adapt to app needs
+        #self.log.debug("handlerDeviceData: %s, %s, %s", type, str(id), data)
         for ws in self.connectionList:
             ws.send("HW_CONNECTION_STATUS("+str(type)+","+str(id)+","+str(data)+")")
         pass
