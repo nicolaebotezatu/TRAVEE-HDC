@@ -12,7 +12,7 @@ class SessionStatus(enum.Enum):
 
 class ExerciseStatus(enum.Enum):
     IDLE = 0
-    STARTED = 1
+    RUNNING = 1
     PAUSED = 2
 
 class WebClientInterace(Thread):
@@ -29,6 +29,7 @@ class WebClientInterace(Thread):
 
         ### Signals ###
         self.signalGotHMDIP = "wci1"
+        self.signalExercise = "wci2"
 
         ### Logger setup ###
         self.log = logging.getLogger(__name__)
@@ -76,39 +77,56 @@ class WebClientInterace(Thread):
             
             self.log.debug("Parsed START_SESSION message. HMD IP: %s", HMDIP)
 
-            if self.sesStat != SessionStatus.VR_CONNECTED:
-                dispatcher.send(self.signalGotHMDIP, self, ip=HMDIP)
+            # if self.sesStat != SessionStatus.VR_CONNECTED:
+            self.sesStat = SessionStatus.STARTED
+            dispatcher.send(self.signalGotHMDIP, self, ip=HMDIP)
+            
             
         elif "START_EXERCISE" in msg:
+            if self.sesStat != SessionStatus.VR_CONNECTED:
+                self.log.info("HMD not connected")
+                return
             if self.exStat != ExerciseStatus.IDLE:
                 self.log.info("Exercise already defined!")
                 return
-            
             try:
                 params = msg.split('(')[1].split(',')
                 exerciseId = params[0]
                 targetLimb = params[1]
-                deviceList = params[2]
+                deviceList = params[2][:-1]
             except:
                 self.log.error("START_EXERCISE: unable to parse parameters")
                 return
             
-            self.exStat = ExerciseStatus.STARTED
             self.log.debug("Parsed START_EXERCISE message: %s, %s, %s", exerciseId, targetLimb, deviceList)
             #TODO: parse parms & emit relevant signals
+            #TODO: Add params to dispatched signal
+            dispatcher.send(self.signalExercise, self, status="start")
+            self.exStat = ExerciseStatus.RUNNING
         elif "PAUSE_EXERCISE" in msg:
+            if self.sesStat != SessionStatus.VR_CONNECTED:
+                self.log.info("HMD not connected")
+                return
             self.log.debug("Parsed PAUSE_EXERCISE message")
             #TODO: function logic
-            pass
+            dispatcher.send(self.signalExercise, self, status="pause")
+            self.exStat = ExerciseStatus.PAUSED
         elif "RESUME_EXERCISE" in msg:
+            if self.sesStat != SessionStatus.VR_CONNECTED:
+                self.log.info("HMD not connected")
+                return
             self.log.debug("Parsed RESUME_EXERCISE message")
             #TODO: function logic
-            pass
+            dispatcher.send(self.signalExercise, self, status="resume")
+            self.exStat = ExerciseStatus.RUNNING
         elif "STOP_EXERCISE" in msg:
+            if self.sesStat != SessionStatus.VR_CONNECTED:
+                self.log.info("HMD not connected")
+                return
             self.log.debug("Parsed STOP_EXERCISE message")
             #TODO: function logic
-            pass
-
+            dispatcher.send(self.signalExercise, self, status="stop")
+            self.exStat = ExerciseStatus.IDLE
 
     ### "SLOTS" ###
 
@@ -122,9 +140,9 @@ class WebClientInterace(Thread):
 
     # Handler for signals dispatched by the HMD interface
     def handlerHMDInterface(self, status):
-        if "connected" in status:
-            self.sesStat = SessionStatus.STARTED
-        elif "disconnected" in status:
+        if status == "connected":
+            self.sesStat = SessionStatus.VR_CONNECTED
+        elif status == "disconnected":
             self.sesStat = SessionStatus.IDLE
 
         for ws in self.connectionList:

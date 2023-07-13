@@ -69,6 +69,8 @@ class HDCGUIDemo(tk.Tk):
         dispatcher.connect(self.wci.handlerCloseSignal, signal=self.signalKill, sender=self)
         dispatcher.connect(self.hmdi.handlerCloseSignal, signal=self.signalKill, sender=self)
 
+        dispatcher.connect(self.handlerExerciseEvent, signal=self.wci.signalExercise, sender=self.wci)
+
         self.timer = Timer(1, self.handlerTimer)
 
     def handlerTimer(self):
@@ -123,10 +125,19 @@ class HDCGUIDemo(tk.Tk):
     def handlerHMDInterface(self, status):
         # print("handlerHMDInterface:", status)
         if status == "connected":
-            self.timer = Timer(self.sliderPeriod.get(), self.handlerTimer)
-            self.timer.start()
+            # self.timer = Timer(self.sliderPeriod.get(), self.handlerTimer)
+            # self.timer.start()
+            pass
         elif status == "disconnected":
             # print("Cancelling timer")
+            # self.timer.cancel()
+            pass
+
+    def handlerExerciseEvent(self, status):
+        if status == "start" or status == "resume":
+            self.timer = Timer(self.sliderPeriod.get(), self.handlerTimer)
+            self.timer.start()
+        elif status == "pause" or status == "stop":
             self.timer.cancel()
 
     def cleanUp(self):
@@ -136,8 +147,8 @@ class HDCGUIDemo(tk.Tk):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("-s", "--ServerPort", help = "Port for the HDC WS Server to listen on", required=True)
-    parser.add_argument("-d", "--HMDPort", help = "Port on which the HMD WS Server is listening on", required=True)
+    parser.add_argument("-s", "--ServerPort", type=int, default=31010, help = "Port for the HDC WS Server to listen on")
+    parser.add_argument("-d", "--HMDPort", type=int, default=22222, help = "Port on which the HMD WS Server is listening on")
     args = parser.parse_args()
 
     app = HDCGUIDemo()
