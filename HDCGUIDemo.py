@@ -77,7 +77,7 @@ class HDCGUIDemo(tk.Tk):
         #TODO: 
         try:
             value = self.sliderValue.get()
-            dispatcher.send(self.signalHwData, self, type="BCI", id="1", data="{:.2f}".format(value))
+            dispatcher.send(self.signalHwData, self, type="BCI", id="", data="{:.2f}".format(value))
 
             self.timer = Timer(self.sliderPeriod.get(), self.handlerTimer)
             self.timer.start()
