@@ -2,10 +2,21 @@ import tkinter as tk
 from tkinter import ttk
 import WebClientInterface as wci
 import HMDInterface as hmdi
+import IMUAdapter as imua
 from pydispatch import dispatcher
 from threading import Timer
 import argparse
 import time
+from dataclasses import dataclass
+import logging
+
+@dataclass
+class exerciseInfo:
+    id:      int
+    limb:    str
+    devices: []
+    status:  str
+
 
 class HDCGUIDemo(tk.Tk):
     def __init__(self, wsServerPort=31010, wsHMDPort=22222):
@@ -54,24 +65,53 @@ class HDCGUIDemo(tk.Tk):
         ### BE elements ###
         self.wci = wci.WebClientInterace(port=wsServerPort)
         self.wci.start()
-        self.hmdi = hmdi.HMDInterace(port=wsHMDPort)
+        self.hmdi = hmdi.HMDInterace(port=wsHMDPort, debugLevel=logging.INFO)
+        self.imua = imua.IMUAdapter(debugLevel=logging.INFO)
+        self.imua.start()
         # WS-Srv --> HMD IP --> WS-Cl
+        # WebClientInterface receives the IP of the HMD and sends it to the HMDInterface
         dispatcher.connect(self.hmdi.handlerSetIPAddress, signal=self.wci.signalGotHMDIP, sender=self.wci)
         # WS-Cl --> Conn status --> WS-Srv
+        # HMDInterface sends its connection status with the HMD to the WebClientInterface
         dispatcher.connect(self.wci.handlerHMDInterface, signal=self.hmdi.signalConnectionStatus, sender=self.hmdi)
         # WS-Cl --> Conn status --> GUI (start/stop timer)
+        # HMDInterface sends its connection status with the HMD to the HDC main app
         dispatcher.connect(self.handlerHMDInterface, signal=self.hmdi.signalConnectionStatus, sender=self.hmdi)
         # Timer --> BCI_data --> WS-Cl
-        dispatcher.connect(self.hmdi.handlerSendData, signal=self.signalHwData, sender=self)
+        # HDC main app sends dummy BCI data to the HMDInterface
+        ###dispatcher.connect(self.hmdi.handlerSendData, signal=self.signalHwData, sender=self)
         # Chkbox --> Hw_stat --> WS_Srv
+        # HDC main app sends dummy HW device status info to the WebClientInterface
         dispatcher.connect(self.wci.handlerDeviceData, signal=self.signalHwStatus, sender=self)
+        
+        # IMUAdapter sends IMU data to the HMDInterface
+        ###dispatcher.connect(self.hmdi.handlerSendData, signal=self.imua.signalGotData, sender=self.imua)
+        # IMUAdapter send HW status info to the WebClientInterface
+        dispatcher.connect(self.wci.handlerDeviceData, signal=self.imua.signalGotStatus, sender=self.imua)
 
+        # HDC main app sends kill command to all interface components
         dispatcher.connect(self.wci.handlerCloseSignal, signal=self.signalKill, sender=self)
         dispatcher.connect(self.hmdi.handlerCloseSignal, signal=self.signalKill, sender=self)
+        dispatcher.connect(self.imua.handlerCloseSignal, signal=self.signalKill, sender=self)
 
+        # WebClientInterface sends exercise status info to the HDC main app
         dispatcher.connect(self.handlerExerciseEvent, signal=self.wci.signalExercise, sender=self.wci)
 
         self.timer = Timer(1, self.handlerTimer)
+        self.timer = Timer(self.sliderPeriod.get(), self.handlerTimer)
+        self.timer.start()
+
+        ### Internal structures ###
+        self.exerciseList = []
+        self.deviceDataSignals = {
+                                    "BCI": {
+                                        "signal": self.signalHwData,
+                                        "sender": self
+                                        },
+                                    "IMU": {
+                                        "signal": self.imua.signalGotData,
+                                        "sender": self.imua
+                                    }}
 
     def handlerTimer(self):
         #TODO: 
@@ -130,15 +170,54 @@ class HDCGUIDemo(tk.Tk):
             pass
         elif status == "disconnected":
             # print("Cancelling timer")
-            # self.timer.cancel()
-            pass
-
-    def handlerExerciseEvent(self, status):
-        if status == "start" or status == "resume":
-            self.timer = Timer(self.sliderPeriod.get(), self.handlerTimer)
-            self.timer.start()
-        elif status == "pause" or status == "stop":
             self.timer.cancel()
+            # pass
+
+    def handlerExerciseEvent(self, id, limb, devList, status):
+        # print(id, limb, devList, status)
+        if status == "start":
+            ei = exerciseInfo(id, limb, devList, status)
+            for i in self.exerciseList:
+                if i.id == id and i.limb == limb:
+                    self.exerciseList.remove(i)
+            self.exerciseList.append(ei)
+            for d in devList:
+                try:
+                    # print(self.deviceDataSignals[d])
+                    dispatcher.connect(self.hmdi.handlerSendData, signal=self.deviceDataSignals[d]["signal"], sender=self.deviceDataSignals[d]["sender"])
+                except KeyError:
+                    # print("KeyError")
+                    pass
+        elif status == "resume":
+            for i in self.exerciseList:
+                if i.id == id:
+                    for d in i.devices:
+                        try:
+                            dispatcher.connect(self.hmdi.handlerSendData, signal=self.deviceDataSignals[d]["signal"], sender=self.deviceDataSignals[d]["sender"])
+                        except KeyError:
+                            pass
+        elif status == "pause":
+            for i in self.exerciseList:
+                if i.id == id:
+                    for d in i.devices:
+                        try:
+                            dispatcher.disconnect(self.hmdi.handlerSendData, signal=self.deviceDataSignals[d]["signal"], sender=self.deviceDataSignals[d]["sender"])
+                        except KeyError:
+                            pass
+        elif status == "stop":
+            for i in self.exerciseList:
+                if i.id == id:
+                    for d in i.devices:
+                        try:
+                            dispatcher.disconnect(self.hmdi.handlerSendData, signal=self.deviceDataSignals[d]["signal"], sender=self.deviceDataSignals[d]["sender"])
+                        except KeyError:
+                            pass
+                    self.exerciseList.remove(i)
+        # if status == "start" or status == "resume":
+        #     self.timer = Timer(self.sliderPeriod.get(), self.handlerTimer)
+        #     self.timer.start()
+        # elif status == "pause" or status == "stop":
+        #     self.timer.cancel()
 
     def cleanUp(self):
         # print("Sending kill signal...")

@@ -93,7 +93,8 @@ class WebClientInterace(Thread):
                 params = msg.split('(')[1].split(',')
                 exerciseId = params[0]
                 targetLimb = params[1]
-                deviceList = params[2][:-1]
+                deviceList = params[2:]
+                deviceList[-1] = deviceList[-1][:-1]
             except:
                 self.log.error("START_EXERCISE: unable to parse parameters")
                 return
@@ -101,7 +102,7 @@ class WebClientInterace(Thread):
             self.log.debug("Parsed START_EXERCISE message: %s, %s, %s", exerciseId, targetLimb, deviceList)
             #TODO: parse parms & emit relevant signals
             #TODO: Add params to dispatched signal
-            dispatcher.send(self.signalExercise, self, status="start")
+            dispatcher.send(self.signalExercise, self, id=int(exerciseId), limb=targetLimb, devList=deviceList, status="start")
             self.exStat = ExerciseStatus.RUNNING
         elif "PAUSE_EXERCISE" in msg:
             if self.sesStat != SessionStatus.VR_CONNECTED:
@@ -109,7 +110,13 @@ class WebClientInterace(Thread):
                 return
             self.log.debug("Parsed PAUSE_EXERCISE message")
             #TODO: function logic
-            dispatcher.send(self.signalExercise, self, status="pause")
+            try:
+                params = msg.split('(')
+                exerciseId = params[1][:-1]
+            except:
+                self.log.error("PAUSE_EXERCISE: unable to parse parameters")
+                return
+            dispatcher.send(self.signalExercise, self, id=int(exerciseId), limb=None, devList=[], status="pause")
             self.exStat = ExerciseStatus.PAUSED
         elif "RESUME_EXERCISE" in msg:
             if self.sesStat != SessionStatus.VR_CONNECTED:
@@ -117,7 +124,13 @@ class WebClientInterace(Thread):
                 return
             self.log.debug("Parsed RESUME_EXERCISE message")
             #TODO: function logic
-            dispatcher.send(self.signalExercise, self, status="resume")
+            try:
+                params = msg.split('(')
+                exerciseId = params[1][:-1]
+            except:
+                self.log.error("RESUME_EXERCISE: unable to parse parameters")
+                return
+            dispatcher.send(self.signalExercise, self, id=int(exerciseId), limb=None, devList=[], status="resume")
             self.exStat = ExerciseStatus.RUNNING
         elif "STOP_EXERCISE" in msg:
             if self.sesStat != SessionStatus.VR_CONNECTED:
@@ -125,7 +138,13 @@ class WebClientInterace(Thread):
                 return
             self.log.debug("Parsed STOP_EXERCISE message")
             #TODO: function logic
-            dispatcher.send(self.signalExercise, self, status="stop")
+            try:
+                params = msg.split('(')
+                exerciseId = params[1][:-1]
+            except:
+                self.log.error("STOP_EXERCISE: unable to parse parameters")
+                return
+            dispatcher.send(self.signalExercise, self, id=int(exerciseId), limb=None, devList=[], status="stop")
             self.exStat = ExerciseStatus.IDLE
 
     ### "SLOTS" ###
