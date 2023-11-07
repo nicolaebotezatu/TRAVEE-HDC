@@ -3,6 +3,7 @@ from tkinter import ttk
 import WebClientInterface as wci
 import HMDInterface as hmdi
 import IMUAdapter as imua
+import BCIAdapter as bcia
 from pydispatch import dispatcher
 from threading import Timer
 import argparse
@@ -68,6 +69,10 @@ class HDCGUIDemo(tk.Tk):
         self.hmdi = hmdi.HMDInterace(port=wsHMDPort, debugLevel=logging.INFO)
         self.imua = imua.IMUAdapter(debugLevel=logging.INFO)
         self.imua.start()
+        self.bcia = bcia.BCIAdapter(debugLevel=logging.INFO)
+        self.bcia.start()
+        
+
         # WS-Srv --> HMD IP --> WS-Cl
         # WebClientInterface receives the IP of the HMD and sends it to the HMDInterface
         dispatcher.connect(self.hmdi.handlerSetIPAddress, signal=self.wci.signalGotHMDIP, sender=self.wci)
@@ -89,10 +94,16 @@ class HDCGUIDemo(tk.Tk):
         # IMUAdapter send HW status info to the WebClientInterface
         dispatcher.connect(self.wci.handlerDeviceData, signal=self.imua.signalGotStatus, sender=self.imua)
 
+        #BCIAdapter sebds BCI data to the HMDInterface
+        ###dispatcher.connect(self.hmdi.handlerSendData, signal=self.bcia.signalGotData, sender=self.bcia)
+        # BCIAdapter send HW status info to the WebClientInterface
+        dispatcher.connect(self.wci.handlerDeviceData, signal=self.bcia.signalGotStatus, sender=self.bcia)
+
         # HDC main app sends kill command to all interface components
         dispatcher.connect(self.wci.handlerCloseSignal, signal=self.signalKill, sender=self)
         dispatcher.connect(self.hmdi.handlerCloseSignal, signal=self.signalKill, sender=self)
         dispatcher.connect(self.imua.handlerCloseSignal, signal=self.signalKill, sender=self)
+        dispatcher.connect(self.bcia.handlerCloseSignal, signal=self.signalKill, sender=self)
 
         # WebClientInterface sends exercise status info to the HDC main app
         dispatcher.connect(self.handlerExerciseEvent, signal=self.wci.signalExercise, sender=self.wci)
@@ -105,8 +116,8 @@ class HDCGUIDemo(tk.Tk):
         self.exerciseList = []
         self.deviceDataSignals = {
                                     "BCI": {
-                                        "signal": self.signalHwData,
-                                        "sender": self
+                                        "signal": self.bcia.signalGotData, #self.signalHwData,
+                                        "sender": self.bcia #self
                                         },
                                     "IMU": {
                                         "signal": self.imua.signalGotData,
