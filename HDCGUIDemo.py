@@ -66,10 +66,10 @@ class HDCGUIDemo(tk.Tk):
         ### BE elements ###
         self.wci = wci.WebClientInterace(port=wsServerPort)
         self.wci.start()
-        self.hmdi = hmdi.HMDInterace(port=wsHMDPort, debugLevel=logging.INFO)
+        self.hmdi = hmdi.HMDInterace(port=wsHMDPort, debugLevel=logging.DEBUG)
         self.imua = imua.IMUAdapter(debugLevel=logging.INFO)
         self.imua.start()
-        self.bcia = bcia.BCIAdapter(debugLevel=logging.INFO)
+        self.bcia = bcia.BCIAdapter(debugLevel=logging.DEBUG)
         self.bcia.start()
         
 

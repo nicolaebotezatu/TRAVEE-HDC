@@ -71,7 +71,8 @@ class HMDInterace:
         self.log.debug("handlerSendData: %s %s %s", type, id, data)
         try:
             if self.connStat == ConnectionStatus.CONNECTED:
-                self.ws.send(type+id+"("+data+")")
+                # self.ws.send(type+id+"("+data+")")
+                self.ws.send(type+" "+data)
         except:
             # probably ConnectionClosed exception
             pass

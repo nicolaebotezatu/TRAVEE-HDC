@@ -4,6 +4,7 @@ from threading import Thread
 import logging
 import sys
 import enum
+import json
 
 class SessionStatus(enum.Enum):
     IDLE = 0
@@ -90,19 +91,23 @@ class WebClientInterace(Thread):
                 self.log.info("Exercise already defined!")
                 return
             try:
-                params = msg.split('(')[1].split(',')
-                exerciseId = params[0]
-                targetLimb = params[1]
-                deviceList = params[2:]
-                deviceList[-1] = deviceList[-1][:-1]
+                # params = msg.split('(')[1].split(',')
+                # exerciseId = params[0]
+                # targetLimb = params[1]
+                # deviceList = params[2:]
+                # deviceList[-1] = deviceList[-1][:-1]
+                
+                params = msg.split(' ')[1]
+                params_json = json.loads(params)
             except:
                 self.log.error("START_EXERCISE: unable to parse parameters")
-                return
+                # return
             
-            self.log.debug("Parsed START_EXERCISE message: %s, %s, %s", exerciseId, targetLimb, deviceList)
+            self.log.debug("Parsed START_EXERCISE message: %s, %s, %s", "1", "left", "") #exerciseId, targetLimb, deviceList)
             #TODO: parse parms & emit relevant signals
             #TODO: Add params to dispatched signal
-            dispatcher.send(self.signalExercise, self, id=int(exerciseId), limb=targetLimb, devList=deviceList, status="start")
+            # dispatcher.send(self.signalExercise, self, id=int(exerciseId), limb=targetLimb, devList=deviceList, status="start")
+            dispatcher.send(self.signalExercise, self, id=1, limb="left", devList=["BCI", "IMU"], status="start")
             self.exStat = ExerciseStatus.RUNNING
         elif "PAUSE_EXERCISE" in msg:
             if self.sesStat != SessionStatus.VR_CONNECTED:

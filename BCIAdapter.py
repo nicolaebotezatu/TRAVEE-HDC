@@ -10,7 +10,7 @@ import time
 import select
 
 TCP_IP = '0.0.0.0'
-TCP_PORT = 37456
+TCP_PORT = 33333
 
 class BCIAdapter(Thread):
     def __init__(self, debugLevel=logging.DEBUG):
@@ -38,6 +38,9 @@ class BCIAdapter(Thread):
         self.srv.bind((self.ip, self.port))
         self.srv.listen(1)
         self.log.info("Socket created")
+
+        self.debounceCount = 3
+        self.oldDebounceValue = 0
 
     def checkBuffer(self):
         oB = 0
@@ -74,7 +77,7 @@ class BCIAdapter(Thread):
                     except:
                         self.buffer = b''
                         continue
-                    json_data = self.buffer[0:cnt+1]
+                    json_data = self.buffer[self.buffer.index(b'{'):cnt+1]
                     self.buffer = self.buffer[cnt+1:]
                     return json_data
             cnt+=1
@@ -125,6 +128,7 @@ class BCIAdapter(Thread):
                 try:
                     json_dict = json.loads(data.decode())
                 except:
+                    self.log.error("%s", data.decode())
                     self.log.error("Not a JSON object")
                     continue
                 self.log.debug("Received %s", json_dict)
@@ -139,7 +143,21 @@ class BCIAdapter(Thread):
     def messageParser(self, msg):
         try:
             if msg['Name'] == 'BCI_VALUE':
-                dispatcher.send(self.signalGotData, self, type="BCI", id="1", data=str(msg['Parameters'][0]['NumericValue']))
+                if msg['Parameters'][0]['NumericValue'] == 1.1 or msg['Parameters'][0]['NumericValue'] == -1.1:
+                    if self.oldDebounceValue == msg['Parameters'][0]['NumericValue']:
+                        self.debounceCount -= 1
+                    else:
+                        self.debounceCount = 3
+                    if self.debounceCount == 0:
+                        if msg['Parameters'][0]['NumericValue'] == 1.1:
+                            dispatcher.send(self.signalGotData, self, type="EEG", id="1", data="1")    
+                            print("Value: 1", self.debounceCount)
+                        elif  msg['Parameters'][0]['NumericValue'] == -1.1:
+                            dispatcher.send(self.signalGotData, self, type="EEG", id="1", data="-1") 
+                            print("Value: -1", self.debounceCount)
+                else:   
+                    dispatcher.send(self.signalGotData, self, type="EEG", id="1", data=str(msg['Parameters'][0]['NumericValue']))
+                self.oldDebounceValue = msg['Parameters'][0]['NumericValue']
         except:
             pass
         # if "I=" in msg:
@@ -157,6 +175,6 @@ class BCIAdapter(Thread):
         
 
 if __name__ == "__main__":
-    srv = BCIAdapter()
+    srv = BCIAdapter(debugLevel=logging.INFO)
     srv.start()
     srv.join()    
