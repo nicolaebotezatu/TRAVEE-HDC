@@ -44,6 +44,8 @@ class HMDInterace:
                 self.log.debug("Data: %s", data)
             except:
                 break
+            # Parse messages received from HMD
+            
         self.log.info("HMD connection closed")
         dispatcher.send(self.signalConnectionStatus, self, status="disconnected")
 

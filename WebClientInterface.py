@@ -28,9 +28,18 @@ class WebClientInterace(Thread):
         self.exStat = ExerciseStatus.IDLE
         self.connectionList = []
 
+        self.devStatusDict =    {"BCI" : "disconnected",
+                                "IMU0" : "disconnected",
+                                "IMU1" : "",
+                                "EMG" : "",
+                                "KINECT" : "",
+                                "HMD" : "",
+                                "HAPTIC" : "disconnected" }
+
         ### Signals ###
         self.signalGotHMDIP = "wci1"
         self.signalExercise = "wci2"
+        self.signalStopSession = "wci3"
 
         ### Logger setup ###
         self.log = logging.getLogger(__name__)
@@ -69,19 +78,27 @@ class WebClientInterace(Thread):
             # if self.sesStat != SessionStatus.IDLE:
             #     self.log.info("Session already started!")
             #     return
-            
             try:
-                HMDIP = msg.split('(')[1][:-1]
+                params = msg.split(' ')[1]
+                params_json = json.loads(params)
+                HMDIP = params_json['ip_hmd']
             except:
-                self.log.error("START_SESSION: unable to parse the IP address")
-                return
+                try:
+                    HMDIP = msg.split('(')[1][:-1]
+                except:
+                    self.log.error("START_SESSION: unable to parse the IP address")
+                    return
             
             self.log.debug("Parsed START_SESSION message. HMD IP: %s", HMDIP)
 
             # if self.sesStat != SessionStatus.VR_CONNECTED:
             self.sesStat = SessionStatus.STARTED
             dispatcher.send(self.signalGotHMDIP, self, ip=HMDIP)
-            
+        
+        elif "STOP_SESSION" in msg:
+            self.sesStat = SessionStatus.IDLE
+            dispatcher.send(self.signalStopSession, self)
+            self.log.debug("Parsed STOP_SESSION message")
             
         elif "START_EXERCISE" in msg:
             if self.sesStat != SessionStatus.VR_CONNECTED:
@@ -158,9 +175,19 @@ class WebClientInterace(Thread):
     def handlerDeviceData(self, type, id, data):
         #TODO: adapt to app needs
         #self.log.debug("handlerDeviceData: %s, %s, %s", type, str(id), data)
-        for ws in self.connectionList:
-            ws.send("HW_CONNECTION_STATUS("+str(type)+","+str(id)+","+str(data)+")")
-        pass
+
+        try:
+            self.devStatusDict[type] = data
+            # if type == "HMD":
+            #     for ws in self.connectionList:
+            #         for k in self.devStatusDict:
+            #             ws.send("HW_CONNECTION_STATUS {'hw_id':'"+str(k)+"','status':'"+str(self.devStatusDict[k])+"'}")
+        except:
+            pass
+
+        # for ws in self.connectionList:
+        #     ws.send("HW_CONNECTION_STATUS("+str(type)+","+str(id)+","+str(data)+")")
+        # pass
 
     # Handler for signals dispatched by the HMD interface
     def handlerHMDInterface(self, status):
@@ -169,9 +196,14 @@ class WebClientInterace(Thread):
         elif status == "disconnected":
             self.sesStat = SessionStatus.IDLE
 
+        self.devStatusDict["HMD"] = status
+
         for ws in self.connectionList:
-            ws.send("VR_CONNECTION_STATUS("+str(status)+")")
-        pass
+            # ws.send("VR_CONNECTION_STATUS("+str(status)+")")
+            for k in self.devStatusDict:
+                if self.devStatusDict[k] != "":
+                    ws.send("HW_CONNECTION_STATUS {'hw_id':'"+str(k)+"','status':'"+str(self.devStatusDict[k])+"'}")
+        
 
     def handlerCloseSignal(self):
         self.log.debug("Shutting down...")

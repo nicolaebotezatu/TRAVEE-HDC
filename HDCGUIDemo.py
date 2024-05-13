@@ -105,6 +105,8 @@ class HDCGUIDemo(tk.Tk):
         dispatcher.connect(self.imua.handlerCloseSignal, signal=self.signalKill, sender=self)
         dispatcher.connect(self.bcia.handlerCloseSignal, signal=self.signalKill, sender=self)
 
+        dispatcher.connect(self.hmdi.handlerCloseSignal, signal=self.wci.signalStopSession, sender=self.wci)
+
         # WebClientInterface sends exercise status info to the HDC main app
         dispatcher.connect(self.handlerExerciseEvent, signal=self.wci.signalExercise, sender=self.wci)
 

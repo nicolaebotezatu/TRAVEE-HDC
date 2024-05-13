@@ -8,7 +8,8 @@ async def echo(websocket):
             async for message in websocket:
                 print(message)
         except:
-            pass
+            break
+    print("Client ", "disconnected")
 
 async def main():
     async with serve(echo, "localhost", 22222):

@@ -66,12 +66,12 @@ class IMUAdapter(Thread):
 
     def messageParser(self, msg):
         if "I=" in msg:
-            dispatcher.send(self.signalGotData, self, type="IMU", id=msg[2:19], data=msg[19:])
+            dispatcher.send(self.signalGotData, self, type="IMU0", id=msg[2:19], data=msg[19:])
         if "C=" in msg:
-            dispatcher.send(self.signalGotStatus, self, type="IMU", id=msg[2:19], data="connected")
+            dispatcher.send(self.signalGotStatus, self, type="IMU0", id=msg[2:19], data="connected")
             # if self.imuList.index()
         if "D=" in msg:
-            dispatcher.send(self.signalGotStatus, self, type="IMU", id=msg[2:19], data="disconnected")
+            dispatcher.send(self.signalGotStatus, self, type="IMU0", id=msg[2:19], data="disconnected")
 
     ### "SLOTS" ###
     def handlerCloseSignal(self):
