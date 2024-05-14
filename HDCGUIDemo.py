@@ -4,6 +4,7 @@ import WebClientInterface as wci
 import HMDInterface as hmdi
 import IMUAdapter as imua
 import BCIAdapter as bcia
+import HapticAdapter as hapa
 from pydispatch import dispatcher
 from threading import Timer
 import argparse
@@ -58,10 +59,13 @@ class HDCGUIDemo(tk.Tk):
         ttk.Checkbutton(fDevs, text="Device 2", variable=self.varDevs[2], offvalue=0, onvalue=1, command=self.handlerCheckbox).pack(side=tk.LEFT)
         ttk.Checkbutton(fDevs, text="Device 3", variable=self.varDevs[3], offvalue=0, onvalue=1, command=self.handlerCheckbox).pack(side=tk.LEFT)
         
+        ttk.Button(fDevs, text="Haptic test", command=self.handlerHapticTest).pack(side=tk.LEFT)
+
         ### Signals ###
         self.signalHwStatus = "gui1"
         self.signalHwData = "gui2"
         self.signalKill = "gui3"
+        self.signalHapticTest = "gui4"
 
         ### BE elements ###
         self.wci = wci.WebClientInterace(port=wsServerPort)
@@ -71,6 +75,8 @@ class HDCGUIDemo(tk.Tk):
         self.imua.start()
         self.bcia = bcia.BCIAdapter(debugLevel=logging.DEBUG)
         self.bcia.start()
+        self.hapa = hapa.HapticAdapter(debugLevel=logging.DEBUG)
+        self.hapa.start()
         
 
         # WS-Srv --> HMD IP --> WS-Cl
@@ -88,13 +94,22 @@ class HDCGUIDemo(tk.Tk):
         # Chkbox --> Hw_stat --> WS_Srv
         # HDC main app sends dummy HW device status info to the WebClientInterface
         dispatcher.connect(self.wci.handlerDeviceData, signal=self.signalHwStatus, sender=self)
+        # HDC main app sends dummy command to HapticAdapter
+        dispatcher.connect(self.hapa.handlerPlayPattern, signal=self.signalHapticTest, sender=self)
+
+        # HMD -> haptic command -> HapticAdapter
+        dispatcher.connect(self.hapa.handlerPlayPattern, signal=self.hmdi.signalStartVibration, sender=self.hmdi)
+
         
         # IMUAdapter sends IMU data to the HMDInterface
         ###dispatcher.connect(self.hmdi.handlerSendData, signal=self.imua.signalGotData, sender=self.imua)
         # IMUAdapter send HW status info to the WebClientInterface
         dispatcher.connect(self.wci.handlerDeviceData, signal=self.imua.signalGotStatus, sender=self.imua)
 
-        #BCIAdapter sebds BCI data to the HMDInterface
+        # HapticAdapter send HW status info to the WebClientInterface
+        dispatcher.connect(self.wci.handlerDeviceData, signal=self.hapa.signalGotStatus, sender=self.hapa)
+
+        #BCIAdapter sends BCI data to the HMDInterface
         ###dispatcher.connect(self.hmdi.handlerSendData, signal=self.bcia.signalGotData, sender=self.bcia)
         # BCIAdapter send HW status info to the WebClientInterface
         dispatcher.connect(self.wci.handlerDeviceData, signal=self.bcia.signalGotStatus, sender=self.bcia)
@@ -125,6 +140,10 @@ class HDCGUIDemo(tk.Tk):
                                         "signal": self.imua.signalGotData,
                                         "sender": self.imua
                                     }}
+
+    def handlerHapticTest(self):
+        print("haptic_test")
+        dispatcher.send(self.signalHapticTest, self, pattern="15")
 
     def handlerTimer(self):
         #TODO: 

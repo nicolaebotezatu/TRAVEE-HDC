@@ -43,6 +43,7 @@ def printStatTable():
     print(V_LINE + ' ' * STAT_TABLE_WIDTH + V_LINE)
     print(V_LINE + ' ' * STAT_TABLE_WIDTH + V_LINE)
     print(V_LINE + ' ' * STAT_TABLE_WIDTH + V_LINE)
+    print(V_LINE + ' ' * STAT_TABLE_WIDTH + V_LINE)
     print(BL_CORNER + H_LINE * STAT_TABLE_WIDTH + BR_CORNER)
 
 def euler_from_quaternion(x, y, z, w):

@@ -25,6 +25,7 @@ class HMDInterace:
 
         ### Signals ###
         self.signalConnectionStatus = "hmdi1"
+        self.signalStartVibration = "hmdi2"
 
         ### Logger setup ###
         self.log = logging.getLogger(__name__)
@@ -42,6 +43,8 @@ class HMDInterace:
                 if data is None:
                     break
                 self.log.debug("Data: %s", data)
+                if data == "START_VIBRATION":
+                    dispatcher.send(self.signalStartVibration, self, pattern="15")
             except:
                 break
             # Parse messages received from HMD
