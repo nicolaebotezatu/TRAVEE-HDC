@@ -91,6 +91,7 @@ class HMDInterace:
                 return id
 
     def handlerCloseSignal(self):
+        self.log.info("Closing HMD connection")
         try:
             if isinstance(self.ws, wssyc.ClientConnection) == True:
                 # print("self.ws.close()")

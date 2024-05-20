@@ -136,7 +136,7 @@ class HDCGUIDemo(tk.Tk):
                                         "signal": self.bcia.signalGotData, #self.signalHwData,
                                         "sender": self.bcia #self
                                         },
-                                    "IMU": {
+                                    "IMU0": {
                                         "signal": self.imua.signalGotData,
                                         "sender": self.imua
                                     }}
