@@ -34,7 +34,7 @@ class WebClientInterace(Thread):
                                 "EMG" : "",
                                 "KINECT" : "",
                                 "HMD" : "",
-                                "HAPTIC" : "disconnected" }
+                                "HAPTIC" : "connected" }
 
         ### Signals ###
         self.signalGotHMDIP = "wci1"
@@ -70,6 +70,10 @@ class WebClientInterace(Thread):
                 break
         
         self.log.info("Connection closed")
+        ### Workardound when the WebIntf does not send the STOP_SESSION message
+        if self.sesStat != SessionStatus.IDLE:
+            dispatcher.send(self.signalStopSession, self)
+        ###
         self.connectionList.remove(ws)
         # self.server.shutdown()
 
@@ -203,7 +207,10 @@ class WebClientInterace(Thread):
             # ws.send("VR_CONNECTION_STATUS("+str(status)+")")
             for k in self.devStatusDict:
                 if self.devStatusDict[k] != "":
-                    ws.send("HW_CONNECTION_STATUS {'hw_id':'"+str(k)+"','status':'"+str(self.devStatusDict[k])+"'}")
+                    try:
+                        ws.send('HW_CONNECTION_STATUS {"hw_id":"'+str(k)+'","status":"'+str(self.devStatusDict[k])+'"}')
+                    except:
+                        self.log.debug("handlerHMDInterface error while sending data...")
         
 
     def handlerCloseSignal(self):

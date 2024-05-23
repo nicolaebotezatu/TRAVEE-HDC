@@ -43,7 +43,7 @@ class HMDInterace:
                 if data is None:
                     break
                 self.log.debug("Data: %s", data)
-                if data == "START_VIBRATION":
+                if data == "START_VIBRATION" or data == "START_VIBRATIONS":
                     dispatcher.send(self.signalStartVibration, self, pattern="15")
             except:
                 break
