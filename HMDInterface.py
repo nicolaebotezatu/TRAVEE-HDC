@@ -9,8 +9,9 @@ import enum
 import ctypes
 
 class ConnectionStatus(enum.Enum):
-    DISCONNECTED = 0
+    RECONNECTING = 0
     CONNECTED = 1
+    IDLE = 2
 
 class HMDInterace:
     def __init__(self, port, debugLevel=logging.DEBUG):
@@ -20,7 +21,7 @@ class HMDInterace:
         self.port = port
 
         ### Functioning logic setup ###
-        self.connStat = ConnectionStatus.DISCONNECTED
+        self.connStat = ConnectionStatus.IDLE
         self.recvThread = None
 
         ### Signals ###
@@ -36,6 +37,30 @@ class HMDInterace:
         handler.setFormatter(formatter)
         self.log.addHandler(handler)
 
+        self.reconnectionTimer = None
+        self.serverIP = None
+
+    def connect(self):
+        if self.serverIP is None:
+            return
+        if self.recvThread is not None:
+            if self.recvThread.is_alive() == True:
+                self.ws.close()
+        try:
+            self.ws = connect("ws://"+self.serverIP+":"+str(self.port))#,open_timeout=0.5)
+            # print(type(self.ws))
+            self.log.info("HMD connection opened!")
+            self.connStat = ConnectionStatus.CONNECTED
+            self.recvThread = Thread(target=self.run)
+            self.recvThread.start()
+            dispatcher.send(self.signalConnectionStatus, self, status="connected")
+        except:
+            self.log.info("HMD connection error, trying to reconnect in 2 seconds...")
+            self.connStat = ConnectionStatus.RECONNECTING
+            dispatcher.send(self.signalConnectionStatus, self, status="error")
+            self.reconnectionTimer = threading.Timer(2, self.connect)
+            self.reconnectionTimer.start()
+
     def run(self):
         while True:
             try:
@@ -50,27 +75,16 @@ class HMDInterace:
             # Parse messages received from HMD
             
         self.log.info("HMD connection closed")
+        if self.connStat != ConnectionStatus.IDLE:
+            self.connStat = ConnectionStatus.RECONNECTING
+            self.connect()
         dispatcher.send(self.signalConnectionStatus, self, status="disconnected")
 
     ### "SLOTS" ###
     def handlerSetIPAddress(self, ip):
         self.log.info(ip)
-        if self.recvThread is not None:
-            if self.recvThread.is_alive() == True:
-                self.ws.close()
-        try:
-            self.ws = connect("ws://"+ip+":"+str(self.port))#,open_timeout=0.5)
-            # print(type(self.ws))
-            self.log.info("HMD connection opened!")
-            self.connStat = ConnectionStatus.CONNECTED
-            self.recvThread = Thread(target=self.run)
-            self.recvThread.start()
-            dispatcher.send(self.signalConnectionStatus, self, status="connected")
-        except:
-            self.log.info("HMD connection error")
-            self.connStat = ConnectionStatus.DISCONNECTED
-            dispatcher.send(self.signalConnectionStatus, self, status="error")
-            pass
+        self.serverIP = ip
+        self.connect()
 
     def handlerSendData(self, type, id, data):
         self.log.debug("handlerSendData: %s %s %s", type, id, data)
@@ -91,6 +105,7 @@ class HMDInterace:
                 return id
 
     def handlerCloseSignal(self):
+        self.connStat = ConnectionStatus.IDLE
         self.log.info("Closing HMD connection")
         try:
             if isinstance(self.ws, wssyc.ClientConnection) == True:

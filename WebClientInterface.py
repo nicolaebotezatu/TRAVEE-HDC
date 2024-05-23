@@ -34,7 +34,7 @@ class WebClientInterace(Thread):
                                 "EMG" : "",
                                 "KINECT" : "",
                                 "HMD" : "",
-                                "HAPTIC" : "connected" }
+                                "HAPTIC" : "disconnected" }
 
         ### Signals ###
         self.signalGotHMDIP = "wci1"
